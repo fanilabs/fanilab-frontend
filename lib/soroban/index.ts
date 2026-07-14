@@ -3,28 +3,26 @@
  * Production-ready Stellar smart contract interaction layer
  */
 
-import * as StellarSdk from 'stellar-sdk';
-import { Account, Contract, SorobanRpc, TransactionBuilder, xdr } from 'stellar-sdk';
-
-const {
-  Server,
+import {
+  Account,
+  Contract,
+  SorobanRpc,
+  TransactionBuilder,
+  Transaction,
+  xdr,
   BASE_FEE,
   Networks,
-  Transaction,
-  TransactionBuilder: TxBuilder,
-} = StellarSdk;
+  Address,
+} from 'stellar-sdk';
 
 // Network configuration
 export const NETWORK = (process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet') as
-  | 'testnet'
-  | 'mainnet'
-  | 'futurenet';
+  'testnet' | 'mainnet' | 'futurenet';
 
 export const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
 
-export const NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET;
+export const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || Networks.TESTNET;
 
 // Contract IDs
 export const ESCROW_CONTRACT_ID = process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID || '';
@@ -52,6 +50,7 @@ export function getNetworkPassphrase(): string {
  */
 export async function loadAccount(publicKey: string): Promise<Account> {
   const server = getSorobanServer();
+  // SorobanRpc.Server.getAccount returns an Account object directly
   return await server.getAccount(publicKey);
 }
 
@@ -93,9 +92,7 @@ export async function simulateTransaction(
 /**
  * Prepare transaction with simulation results
  */
-export async function prepareTransaction(
-  transaction: Transaction
-): Promise<Transaction> {
+export async function prepareTransaction(transaction: Transaction): Promise<Transaction> {
   const server = getSorobanServer();
   const simulated = await simulateTransaction(transaction);
 
@@ -178,7 +175,7 @@ export function parseTransactionResult(
     return null;
   }
 
-  const meta = xdr.TransactionMeta.fromXDR(response.resultMetaXdr, 'base64');
+  const meta = response.resultMetaXdr;
 
   if (meta.switch() !== 3) {
     return null;
@@ -223,7 +220,7 @@ export const scValUtils = {
   },
 
   toAddress(address: string): xdr.ScVal {
-    return new StellarSdk.Address(address).toScVal();
+    return new Address(address).toScVal();
   },
 
   toBool(value: boolean): xdr.ScVal {
@@ -235,9 +232,7 @@ export const scValUtils = {
   },
 
   toMap(entries: [xdr.ScVal, xdr.ScVal][]): xdr.ScVal {
-    const mapEntries = entries.map(
-      ([key, val]) => new xdr.ScMapEntry({ key, val })
-    );
+    const mapEntries = entries.map(([key, val]) => new xdr.ScMapEntry({ key, val }));
     return xdr.ScVal.scvMap(mapEntries);
   },
 
@@ -276,7 +271,7 @@ export const scValUtils = {
         return obj;
       }
       case xdr.ScValType.scvAddress():
-        return StellarSdk.Address.fromScVal(val).toString();
+        return Address.fromScVal(val).toString();
       default:
         return null;
     }
@@ -288,10 +283,14 @@ export const scValUtils = {
  */
 export async function getAccountBalance(publicKey: string): Promise<string> {
   try {
-    const account = await loadAccount(publicKey);
-    const nativeBalance = account.balances.find(
-      (b) => b.asset_type === 'native'
-    ) as StellarSdk.Horizon.HorizonApi.BalanceLineNative;
+    // Use Horizon server for account balance queries
+    const { Horizon } = await import('stellar-sdk');
+    const horizonUrl =
+      NETWORK === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+    const horizonServer = new Horizon.Server(horizonUrl);
+
+    const account = await horizonServer.loadAccount(publicKey);
+    const nativeBalance = account.balances.find((b: any) => b.asset_type === 'native') as any;
     return nativeBalance ? nativeBalance.balance : '0';
   } catch (error) {
     console.error('Failed to get balance:', error);
