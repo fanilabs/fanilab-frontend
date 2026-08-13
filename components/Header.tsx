@@ -1,90 +1,110 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useWallet } from '@/lib/hooks/useWallet';
-import toast from 'react-hot-toast';
-import { getUserErrorMessage, logError } from '@/lib/errors';
+import Logo from './Logo';
+import { REPO_LINKS } from '@/lib/links';
+
+const NAV_LINKS = [
+  { href: '#ecosystem', label: 'Ecosystem' },
+  { href: '#how-it-works', label: 'How It Works' },
+  { href: '#smart-contracts', label: 'Smart Contracts' },
+  { href: '#backend', label: 'Backend' },
+  { href: '#status', label: 'Status' },
+];
 
 export default function Header() {
-  const { address, balance, isConnected, isConnecting, connect, disconnect, shortAddress } =
-    useWallet();
-
-  const handleConnect = async () => {
-    try {
-      await connect();
-      toast.success('Wallet connected successfully!');
-    } catch (error) {
-      const errorMessage = getUserErrorMessage(error);
-      toast.error(errorMessage);
-      logError(error, 'Wallet Connection');
-    }
-  };
-
-  const handleDisconnect = () => {
-    disconnect();
-    toast.success('Wallet disconnected');
-  };
+  const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-md">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <span className="text-2xl font-bold text-primary-600">FaniLab 📦</span>
-            </Link>
-            <div className="ml-10 flex space-x-8">
-              <Link
-                href="/create-delivery"
-                className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary-600"
-              >
-                Create Delivery
-              </Link>
-              <Link
-                href="/deliveries"
-                className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary-600"
-              >
-                Browse Jobs
-              </Link>
-              <Link
-                href="/dashboard"
-                className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary-600"
-              >
-                Dashboard
-              </Link>
-            </div>
-          </div>
-          <div className="flex items-center">
-            {isConnected ? (
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <div className="text-xs text-gray-500">Balance</div>
-                  <div className="text-sm font-semibold text-gray-900">
-                    {parseFloat(balance).toFixed(2)} XLM
-                  </div>
-                </div>
-                <div className="rounded-lg bg-primary-50 px-3 py-2">
-                  <span className="text-sm font-medium text-primary-700">{shortAddress}</span>
-                </div>
-                <button
-                  onClick={handleDisconnect}
-                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-              </button>
-            )}
-          </div>
+    <header className="sticky top-0 z-50 border-b border-line bg-ink-950/80 backdrop-blur-md">
+      <div className="section-shell flex h-16 items-center justify-between">
+        <Link href="#top" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
+          <Logo />
+          <span className="text-lg font-semibold tracking-tight text-paper">FaniLab</span>
+        </Link>
+
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="rounded-md px-3 py-2 text-sm text-paper-muted transition-colors hover:text-paper"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="hidden lg:block">
+          <a
+            href={REPO_LINKS.org}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary !px-4 !py-2 text-xs"
+          >
+            View on GitHub
+          </a>
         </div>
-      </nav>
+
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-paper lg:hidden"
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            {open ? (
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            ) : (
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      {open && (
+        <nav
+          id="mobile-nav"
+          aria-label="Mobile"
+          className="border-t border-line bg-ink-950 px-6 pb-6 pt-2 lg:hidden"
+        >
+          <ul className="flex flex-col">
+            {NAV_LINKS.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md py-3 text-base text-paper-muted transition-colors hover:text-paper"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a
+            href={REPO_LINKS.org}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary mt-3 w-full"
+            onClick={() => setOpen(false)}
+          >
+            View on GitHub
+          </a>
+        </nav>
+      )}
     </header>
   );
 }

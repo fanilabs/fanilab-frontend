@@ -14,6 +14,7 @@ const eslintConfig = [
       'playwright-report/**',
       '*.config.js',
       '*.config.mjs',
+      '*.config.ts',
     ],
   },
   ...nextPlugin,

@@ -18,21 +18,10 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.3.4",
-    "@stellar/freighter-api": "^1.7.1",
-    "@stellar/stellar-base": "^11.0.1",
-    "clsx": "^2.1.0",
-    "date-fns": "^3.3.1",
     "framer-motion": "^11.0.3",
     "next": "^16.2.10",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-hook-form": "^7.50.0",
-    "react-hot-toast": "^2.4.1",
-    "stellar-sdk": "^11.3.0",
-    "swr": "^2.2.4",
-    "zod": "^3.22.4",
-    "zustand": "^4.5.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

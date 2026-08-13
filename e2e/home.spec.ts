@@ -1,31 +1,57 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Home Page', () => {
-  test('should display main heading and features', async ({ page }) => {
+test.describe('Home page', () => {
+  test('displays the hero headline and primary CTAs', async ({ page }) => {
     await page.goto('/');
 
-    // Check main heading
-    await expect(page.getByRole('heading', { name: /FaniLab/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /on-chain infrastructure for trusted logistics/i })
+    ).toBeVisible();
 
-    // Check feature cards
-    await expect(page.getByText('Create Delivery')).toBeVisible();
-    await expect(page.getByText('Find Deliveries')).toBeVisible();
-    await expect(page.getByText('My Dashboard')).toBeVisible();
+    await expect(page.getByRole('link', { name: /explore the ecosystem/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /view source on github/i })).toBeVisible();
   });
 
-  test('should navigate to create delivery page', async ({ page }) => {
+  test('renders every major section', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('link', { name: /Get Started/i }).first().click();
-    await expect(page).toHaveURL('/create-delivery');
+    for (const id of [
+      'what-is',
+      'ecosystem',
+      'how-it-works',
+      'smart-contracts',
+      'backend',
+      'trust',
+      'stellar',
+      'status',
+      'open-source',
+    ]) {
+      await expect(page.locator(`#${id}`)).toBeAttached();
+    }
   });
 
-  test('should display how it works section', async ({ page }) => {
+  test('links to the real FaniLab repositories', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByText('How It Works')).toBeVisible();
-    await expect(page.getByText('Create Request')).toBeVisible();
-    await expect(page.getByText('Lock Payment')).toBeVisible();
-    await expect(page.getByText('Release Payment')).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /view the smart contract repository/i })
+    ).toHaveAttribute('href', 'https://github.com/fanilabs/fanilab-smartcontract');
+
+    await expect(page.getByRole('link', { name: /view the backend repository/i })).toHaveAttribute(
+      'href',
+      'https://github.com/fanilabs/backend'
+    );
+  });
+
+  test('mobile navigation menu opens and closes', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/');
+
+    const toggle = page.getByRole('button', { name: /open menu/i });
+    await toggle.click();
+    await expect(page.getByRole('navigation', { name: /mobile/i })).toBeVisible();
+
+    await page.getByRole('button', { name: /close menu/i }).click();
+    await expect(page.getByRole('navigation', { name: /mobile/i })).not.toBeVisible();
   });
 });
