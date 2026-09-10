@@ -1,454 +1,138 @@
 # FaniLab Frontend Architecture
 
-## 🏗️ System Architecture
+> **Scope:** this document describes the code on `main` — a single-page showcase site.
+> It is **not** a transactional dApp: there is no wallet connection, no data fetching,
+> no backend calls, and no on-chain calls in this repository. A fuller dApp architecture
+> that this repository once scaffolded is summarised under [History](#history) and is only
+> available in git history.
+
+## Overview
+
+The application is one statically-rendered Next.js route (`/`) that composes a marketing /
+explainer page for the FaniLab platform. It renders content that is authored as literals in
+the component tree; nothing is loaded at runtime. It builds and deploys with zero required
+environment variables.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Browser                            │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │              Next.js 14 Application                      │   │
-│  │                  (App Router)                           │   │
-│  │                                                         │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐            │   │
-│  │  │  Pages   │  │Components│  │  Hooks   │            │   │
-│  │  │ (Routes) │  │   (UI)   │  │ (Logic)  │            │   │
-│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘            │   │
-│  │       │             │             │                    │   │
-│  │       └─────────────┴─────────────┘                    │   │
-│  │                     │                                  │   │
-│  │       ┌─────────────┴─────────────┐                   │   │
-│  │       │                           │                   │   │
-│  │  ┌────▼────┐              ┌───────▼──────┐           │   │
-│  │  │ Zustand │              │   SWR Cache  │           │   │
-│  │  │  Store  │              │  (Data Fetch)│           │   │
-│  │  └────┬────┘              └───────┬──────┘           │   │
-│  │       │                           │                   │   │
-│  │       └──────────┬────────────────┘                   │   │
-│  │                  │                                    │   │
-│  │       ┌──────────▼──────────┐                        │   │
-│  │       │   Contract API      │                        │   │
-│  │       │   (lib/contracts)   │                        │   │
-│  │       └──────────┬──────────┘                        │   │
-│  │                  │                                    │   │
-│  └──────────────────┼────────────────────────────────────┘   │
-│                     │                                         │
-└─────────────────────┼─────────────────────────────────────────┘
-                      │
-          ┌───────────┴───────────┐
-          │                       │
-    ┌─────▼──────┐        ┌──────▼─────┐
-    │  Freighter │        │  Soroban   │
-    │   Wallet   │        │    RPC     │
-    │ (Signing)  │        │  Server    │
-    └────────────┘        └──────┬─────┘
-                                 │
-                          ┌──────▼─────┐
-                          │  Stellar   │
-                          │ Blockchain │
-                          │            │
-                          │  Contracts │
-                          │  - Escrow  │
-                          │  -Delivery │
-                          │  -Dispute  │
-                          └────────────┘
+Browser
+  └── Next.js 16 (App Router), statically rendered
+        ├── app/layout.tsx      — <html>, metadata, fonts, Header + Footer
+        └── app/page.tsx        — composes 10 section components into <main>
 ```
 
-## 📦 Layer Architecture
+There is no client-side data layer, no global state store, and no service/integration layer.
+The only client-side state in the app is a single `useState<boolean>` in `Header.tsx` that
+toggles the mobile navigation menu.
 
-### 1. Presentation Layer (React Components)
+## Technology
+
+| Concern | Choice |
+| --- | --- |
+| Framework | Next.js 16 (App Router), React 18 |
+| Language | TypeScript |
+| Styling | Tailwind CSS 3, with design tokens in `tailwind.config.ts` and `app/globals.css` (`@layer components`) |
+| Motion | Framer Motion — scroll-reveal only, gated on `prefers-reduced-motion` |
+| Fonts | `next/font/google` — Inter (sans) and JetBrains Mono |
+| Unit tests | Vitest + Testing Library (`__tests__/components/`) |
+| E2E test | Playwright (`e2e/home.spec.ts`) |
+| Tooling | ESLint, Prettier (+ Tailwind plugin), Husky, lint-staged |
+
+Runtime dependencies are exactly `next`, `react`, `react-dom`, and `framer-motion`. There is
+no Stellar SDK, Soroban client, wallet SDK, state-management library, data-fetching library,
+form library, or validation library in `package.json`.
+
+## Directory layout
 
 ```
 app/
-├── layout.tsx                  # Root layout with providers
-├── page.tsx                    # Home page
-├── create-delivery/
-│   └── page.tsx               # Create delivery form
-├── deliveries/
-│   └── page.tsx               # Browse deliveries
-└── dashboard/
-    └── page.tsx               # User dashboard
+├── layout.tsx            # Root layout: metadata, viewport, fonts, Header, Footer
+├── page.tsx              # Assembles the page from components/sections/*
+├── globals.css           # Design tokens + base styles + @layer components
+├── icon.svg              # Favicon
+└── opengraph-image.tsx   # Open Graph image, generated at the edge (next/og)
 
 components/
-├── Header.tsx                 # Navigation header
-├── Footer.tsx                 # Page footer
-└── Toaster.tsx               # Toast notifications
-```
+├── Header.tsx            # Sticky header + mobile menu (one useState)
+├── Footer.tsx            # Footer with external links
+├── Logo.tsx              # Inline SVG wordmark
+├── ui/
+│   ├── SectionHeading.tsx
+│   ├── StatusBadge.tsx   # "built" / "progress" / "planned" pill
+│   └── Reveal.tsx        # Framer Motion scroll-reveal wrapper
+└── sections/             # One component per page section (see below)
 
-**Responsibilities:**
-- Render UI components
-- Handle user interactions
-- Display data from hooks
-- Form validation feedback
-
-### 2. Business Logic Layer (Hooks & Stores)
-
-```
 lib/
-├── hooks/
-│   ├── useWallet.ts          # Wallet operations
-│   └── useDeliveries.ts      # Delivery data fetching
-│
-└── store/
-    ├── wallet-store.ts       # Wallet state (Zustand)
-    └── delivery-store.ts     # Delivery state (Zustand)
+└── links.ts              # Frozen REPO_LINKS and STELLAR_LINKS objects — the single
+                          # source of truth for external URLs, imported by Header,
+                          # Footer, and several sections
 ```
 
-**Responsibilities:**
-- State management
-- Data caching (SWR)
-- Business rules
-- Side effects
+`lib/` contains only `links.ts`. There are no `lib/soroban/`, `lib/store/`, `lib/hooks/`,
+`lib/validations/`, `lib/errors/`, `lib/contracts.ts`, or `lib/stellar.ts` directories or
+files on `main`.
 
-### 3. Integration Layer (API & Contracts)
+## Page composition
 
-```
-lib/
-├── contracts.ts              # High-level contract API
-├── stellar.ts                # Wallet integration
-│
-└── soroban/
-    ├── index.ts             # Core Soroban utilities
-    └── contracts/
-        ├── escrow.ts        # Escrow contract
-        └── delivery.ts      # Delivery contract
-```
+`app/page.tsx` renders these section components in order:
 
-**Responsibilities:**
-- Blockchain communication
-- Transaction building
-- Contract invocation
-- Result parsing
+1. `Hero` (uses `HeroDiagram`)
+2. `WhatIsFaniLab`
+3. `Ecosystem`
+4. `HowItWorks`
+5. `SmartContractLayer`
+6. `Backend`
+7. `TrustEscrow`
+8. `BuiltForStellar`
+9. `ProjectStatus`
+10. `OpenSource`
 
-### 4. Validation Layer
+The header navigation links to a subset of these sections by anchor. `ProjectStatus.tsx` is
+the on-page "what is built vs. planned" table and is intended to be the source of truth for
+platform status — see the note in `README.md`.
 
-```
-lib/
-├── validations/
-│   └── delivery.ts          # Zod schemas
-│
-└── errors/
-    └── index.ts            # Error handling
-```
+## Rendering & data
 
-**Responsibilities:**
-- Input validation
-- Error parsing
-- Type safety
-- User-friendly errors
+- **Static rendering.** The route has no dynamic params, no `fetch`, and no server actions;
+  `next build` emits it as static HTML.
+- **No runtime data.** All copy, lists, and status values are hard-coded in the components.
+- **No persistence.** `localStorage`, `sessionStorage`, and cookies are never touched.
+- **Open Graph image.** `app/opengraph-image.tsx` runs on the edge runtime and is generated
+  at request/build time by `next/og`.
 
-## 🔄 Data Flow
+## Security headers
 
-### Creating a Delivery
+`next.config.js` sets seven response headers for every path: `Strict-Transport-Security`,
+`X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`,
+`Referrer-Policy`, `Permissions-Policy`, and `X-DNS-Prefetch-Control`. There is **no**
+`Content-Security-Policy` header configured. See `SECURITY.md` for the full posture.
+
+## Build & deploy
 
 ```
-1. User fills form
-   ↓
-2. React Hook Form validates (Zod)
-   ↓
-3. Submit handler calls createDelivery()
-   ↓
-4. contracts.ts builds transaction
-   ↓
-5. soroban/contracts/delivery.ts prepares contract call
-   ↓
-6. soroban/index.ts simulates transaction
-   ↓
-7. stellar.ts signs with Freighter
-   ↓
-8. soroban/index.ts submits to blockchain
-   ↓
-9. Poll for transaction completion
-   ↓
-10. Update UI with result
-    ↓
-11. SWR revalidates data
-    ↓
-12. Zustand store updated
-    ↓
-13. Components re-render
+git push → GitHub Actions (.github/workflows/ci.yml, Node 22)
+             lint · type-check · unit tests · e2e · build · npm audit
+           → Vercel (zero-config; no environment variables required)
 ```
 
-## 🔐 Security Architecture
+Most CI jobs are configured with `continue-on-error: true`; type-check and build are the
+effective gates. See `.github/CI_CD_GUIDE.md`.
 
-### Defense in Depth
+`NEXT_PUBLIC_SITE_URL` is the only environment variable the code reads, and it is optional:
+it only affects absolute Open Graph / canonical URLs. When unset, the code falls back to
+Vercel's `VERCEL_URL`, then to `http://localhost:3000`.
 
-```
-Layer 1: Browser Security
-├── HTTPS only
-├── Security headers
-├── CSP policy
-└── XSS protection
+## History
 
-Layer 2: Input Validation
-├── Zod schemas
-├── Type checking
-├── Sanitization
-└── Format validation
+An earlier iteration of this repository scaffolded a transactional dApp UI:
 
-Layer 3: Wallet Security
-├── No key storage
-├── Freighter signing
-├── Network validation
-└── Transaction simulation
+- routes `app/create-delivery/`, `app/deliveries/`, `app/dashboard/`
+- Zustand stores and SWR data fetching (`lib/store/`, `lib/hooks/`)
+- a Soroban integration layer with **mock** contract calls (`lib/soroban/`, `lib/contracts.ts`)
+- Zod validation schemas and a custom error module (`lib/validations/`, `lib/errors/`)
+- Freighter wallet connection in the header
 
-Layer 4: Blockchain Security
-├── Smart contracts
-├── Escrow protection
-├── Access control
-└── State validation
-
-Layer 5: Monitoring
-├── Error tracking
-├── Anomaly detection
-├── Audit logs
-└── Alerts
-```
-
-## 🎯 State Management Strategy
-
-### Zustand Stores (Global State)
-
-```typescript
-useWalletStore
-├── address          // User's Stellar address
-├── balance          // XLM balance
-├── isConnected      // Connection status
-└── actions
-    ├── connect()
-    ├── disconnect()
-    └── refreshBalance()
-
-useDeliveryStore
-├── deliveries       // All deliveries
-├── userDeliveries   // User's deliveries
-├── activeDelivery   // Current delivery
-└── actions
-    ├── setDeliveries()
-    ├── updateDelivery()
-    └── removeDelivery()
-```
-
-### SWR Cache (Server State)
-
-```typescript
-useDeliveries()
-├── data             // Cached delivery list
-├── isLoading        // Loading state
-├── error            // Error state
-└── mutate()         // Revalidate function
-
-useUserDeliveries(address)
-├── data             // User's deliveries
-├── isLoading        // Loading state
-├── error            // Error state
-└── mutate()         // Revalidate function
-```
-
-### Local Component State
-
-```typescript
-- Form inputs (React Hook Form)
-- UI state (modals, dropdowns)
-- Temporary data (filters, sorting)
-- Loading indicators
-```
-
-## 🧪 Testing Architecture
-
-### Test Pyramid
-
-```
-           ┌─────────────┐
-          /   E2E Tests   \     ← Playwright
-         /   (Few tests)   \      (Critical paths)
-        └──────────────────┘
-       ┌────────────────────┐
-      /  Integration Tests  \   ← Vitest + RTL
-     /  (Some tests)         \    (Components + Hooks)
-    └────────────────────────┘
-   ┌──────────────────────────┐
-  /      Unit Tests            \  ← Vitest
- /      (Many tests)            \   (Utils, Logic)
-└────────────────────────────────┘
-```
-
-### Test Coverage
-
-```
-lib/
-├── soroban/         ✅ Unit tests
-├── store/           ✅ Unit tests
-├── hooks/           ✅ Integration tests
-├── validations/     ✅ Unit tests
-└── errors/          ✅ Unit tests
-
-components/          ✅ Integration tests
-
-app/                 ✅ E2E tests
-```
-
-## 🚀 Build & Deploy Pipeline
-
-```
-┌─────────────────┐
-│   Git Push      │
-└────────┬────────┘
-         │
-    ┌────▼────┐
-    │ GitHub  │
-    └────┬────┘
-         │
-    ┌────▼──────────────────┐
-    │   GitHub Actions      │
-    │   CI/CD Pipeline      │
-    ├───────────────────────┤
-    │ 1. Install deps       │
-    │ 2. Lint & Type check  │
-    │ 3. Run tests          │
-    │ 4. Build application  │
-    │ 5. Security scan      │
-    └────┬──────────────────┘
-         │
-    ┌────▼────────┐
-    │   Deploy    │
-    ├─────────────┤
-    │  Vercel     │
-    │  or Docker  │
-    │  or Custom  │
-    └────┬────────┘
-         │
-    ┌────▼────────┐
-    │ Production  │
-    │   (Live)    │
-    └─────────────┘
-```
-
-## 📊 Performance Strategy
-
-### Optimization Techniques
-
-1. **Code Splitting**
-   - Dynamic imports for routes
-   - Component lazy loading
-   - Vendor bundle separation
-
-2. **Caching**
-   - SWR for API data
-   - Browser caching headers
-   - CDN for static assets
-
-3. **Minimization**
-   - Next.js automatic minification
-   - Tree shaking
-   - Dead code elimination
-
-4. **Image Optimization**
-   - Next.js Image component
-   - WebP/AVIF formats
-   - Responsive images
-
-## 🔌 External Integrations
-
-```
-FaniLab Frontend
-├── Freighter Wallet
-│   └── Transaction signing
-│
-├── Soroban RPC
-│   ├── Transaction submission
-│   ├── State queries
-│   └── Event streaming
-│
-├── Backend API (Optional)
-│   ├── Delivery indexing
-│   ├── Search functionality
-│   └── Analytics
-│
-└── Third-party Services
-    ├── Error tracking (Sentry)
-    ├── Analytics (Vercel)
-    └── Monitoring (UptimeRobot)
-```
-
-## 🎨 Design Patterns Used
-
-### Architectural Patterns
-- **Component-Based Architecture** - React components
-- **Store Pattern** - Zustand for state
-- **Repository Pattern** - Contract abstraction
-- **Factory Pattern** - Transaction builders
-- **Observer Pattern** - SWR data fetching
-
-### React Patterns
-- **Custom Hooks** - Reusable logic
-- **Compound Components** - Complex UI
-- **Render Props** - Flexible rendering
-- **Higher-Order Components** - Behavior sharing
-- **Context + Hooks** - State distribution
-
-### Code Patterns
-- **Error Boundaries** - Error containment
-- **Suspense** - Async rendering
-- **Memoization** - Performance optimization
-- **Debouncing** - Input optimization
-- **Throttling** - Event optimization
-
-## 📐 Scalability Considerations
-
-### Horizontal Scaling
-- Stateless architecture
-- CDN distribution
-- Load balancing ready
-- Multiple instance support
-
-### Vertical Scaling
-- Code splitting
-- Lazy loading
-- Efficient re-renders
-- Optimized bundle size
-
-### Database Scaling
-- SWR caching layer
-- Pagination support
-- Infinite scroll ready
-- Batch operations
-
-## 🔄 Update Strategy
-
-### Dependency Updates
-```bash
-# Check outdated packages
-npm outdated
-
-# Update with caution
-npm update
-
-# Test after updates
-npm run test
-npm run type-check
-npm run build
-```
-
-### Version Control
-- Semantic versioning
-- Changelog maintenance
-- Git tags for releases
-- Branch protection rules
-
----
-
-## 🎯 Key Takeaways
-
-1. **Layered Architecture** - Clear separation of concerns
-2. **Type Safety** - TypeScript throughout
-3. **State Management** - Zustand + SWR combination
-4. **Security First** - Defense in depth
-5. **Performance** - Optimized for speed
-6. **Testability** - Comprehensive test coverage
-7. **Maintainability** - Clean, documented code
-8. **Scalability** - Ready to grow
-
----
-
-**This architecture supports a production-ready, enterprise-grade blockchain application on Stellar.**
+That code was removed from `main` in commit `96f3302` ("rebuild frontend as single-page
+FaniLab showcase site", 2026-08-13) and can be recovered from git history. The dApp is
+expected to be revisited once the smart contracts are deployed to a public network — see the
+`ProjectStatus` section on the page and the smart-contract / backend repositories for where
+that work stands.

@@ -1,10 +1,37 @@
-# 🎉 FaniLab Frontend - Production Ready Status
+# FaniLab Frontend — Status
 
-## ✅ Project Status: **10/10 - PRODUCTION READY**
+> ## ⚠️ Historical document
+>
+> **Everything below the "Upgrade Results" heading describes a previous iteration of this
+> repository, not the current code.** That iteration scaffolded a transactional dApp UI
+> (wallet connect, delivery CRUD pages, Zustand/SWR state, mock Soroban calls). It was
+> removed from `main` in commit `96f3302` ("rebuild frontend as single-page FaniLab
+> showcase site", 2026-08-13) and now exists only in git history.
+>
+> The "10/10 / PRODUCTION READY / mainnet" framing, the file and dependency lists, the test
+> counts, and the performance numbers below all refer to that removed code and to features
+> this repository does not currently implement. Some companion docs it references
+> (`QUICK_START.md`, `GETTING_STARTED.md`, `PRODUCTION_SETUP.md`, `DEPLOYMENT_CHECKLIST.md`,
+> `API.md`) have since been removed. It is kept as a record of that effort.
 
-Your FaniLab frontend has been fully upgraded to meet Stellar Wave Ecosystem standards and is ready for mainnet deployment.
+## Current status
+
+The code on `main` is a **single-page static showcase site**. It explains what FaniLab is
+and how the frontend, backend, and Soroban smart-contract repositories fit together. It has
+no wallet connection, no delivery flow, no state store, no data fetching, and no on-chain or
+backend calls. It builds and deploys to Vercel with zero required environment variables.
+
+- **What runs here:** one Next.js route (`/`) composed of ten section components.
+- **Source of truth for platform status:** the `ProjectStatus` section on the page
+  (`components/sections/ProjectStatus.tsx`) — currently *five of six smart contracts
+  implemented, settlement contract not started, backend modules implemented, testnet/mainnet
+  not deployed*.
+- **Full audit:** `AUDIT.md` and `docs/audit/`.
+- **The removed dApp:** `ARCHITECTURE.md` → History, plus `UPGRADE_SUMMARY.md`.
 
 ---
+
+<sub>The remainder of this file is the historical 2026 upgrade snapshot, unchanged.</sub>
 
 ## 📊 Upgrade Results
 

@@ -25,44 +25,45 @@ Thank you for your interest in contributing to FaniLab! This document provides g
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
+- Node.js 20+ (CI runs Node 22)
+- npm
 - Git
-- Freighter wallet (for testing)
 
 ### Setup Development Environment
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/fanilab-frontend.git
+git clone https://github.com/fanilabs/fanilab-frontend.git
 cd fanilab-frontend
 
 # Install dependencies
 npm install
 
-# Copy environment variables
-cp .env.example .env.local
-
 # Run development server
 npm run dev
 ```
+
+No environment variables are required to run the site. `.env.example` documents the single
+optional variable (`NEXT_PUBLIC_SITE_URL`); copy it to `.env.local` only if you need to
+override the Open Graph / canonical base URL locally.
 
 ### Project Structure
 
 ```
 fanilab-frontend/
-├── app/              # Next.js App Router pages
-├── components/       # Reusable React components
-├── lib/              # Utilities and business logic
-│   ├── soroban/     # Stellar/Soroban integration
-│   ├── store/       # State management (Zustand)
-│   ├── hooks/       # Custom React hooks
-│   └── validations/ # Zod schemas
-├── types/           # TypeScript type definitions
-├── __tests__/       # Unit tests
-├── e2e/             # End-to-end tests
-└── public/          # Static assets
+├── app/              # Next.js App Router — layout.tsx, page.tsx, globals.css,
+│                     #   icon.svg, opengraph-image.tsx
+├── components/       # React components
+│   ├── ui/          # SectionHeading, StatusBadge, Reveal
+│   └── sections/    # One component per page section
+├── lib/
+│   └── links.ts     # Frozen external-URL constants (single source of truth)
+├── __tests__/       # Vitest component tests
+└── e2e/             # Playwright specs
 ```
+
+See `ARCHITECTURE.md` for how these fit together. Note the site is a static single-page
+showcase — there is no Soroban, wallet, state-store, or data-fetching code on `main`.
 
 ## Development Workflow
 
@@ -126,18 +127,18 @@ npm run lint:fix
 
 ```typescript
 // Good
-interface DeliveryParams {
-  sender: string;
-  amount: number;
-  location: string;
+interface SectionProps {
+  eyebrow: string;
+  title: string;
+  description?: string;
 }
 
-function createDelivery(params: DeliveryParams): Promise<string> {
+function SectionHeading(props: SectionProps): JSX.Element {
   // ...
 }
 
 // Bad
-function createDelivery(params: any) {
+function SectionHeading(props: any) {
   // ...
 }
 ```
@@ -145,76 +146,47 @@ function createDelivery(params: any) {
 ### React Components
 
 - Use functional components with hooks
-- Extract complex logic into custom hooks
 - Keep components focused and single-purpose
 - Use prop destructuring
-
-```typescript
-// Good
-export default function DeliveryCard({ delivery }: { delivery: Delivery }) {
-  const { isLoading } = useDelivery(delivery.id);
-  // ...
-}
-```
-
-### State Management
-
-- Use Zustand stores for global state
-- Use local state for component-specific data
-- Use SWR for server data fetching
-
-### Error Handling
-
-- Use the centralized error handling system
-- Parse errors with `parseError()`
-- Show user-friendly messages
-- Log errors for debugging
-
-```typescript
-try {
-  await createDelivery(params);
-} catch (error) {
-  const errorMessage = getUserErrorMessage(error);
-  toast.error(errorMessage);
-  logError(error, 'Create Delivery');
-}
-```
+- Reuse the `ui/` primitives (`SectionHeading`, `StatusBadge`, `Reveal`) rather than
+  re-implementing them
+- Import external URLs from `lib/links.ts`; do not hard-code them in components
+- Gate any animation on `prefers-reduced-motion` (see `Reveal.tsx` / `globals.css`)
 
 ### File Naming
 
-- Components: PascalCase (`DeliveryCard.tsx`)
-- Utilities: camelCase (`formatAmount.ts`)
-- Hooks: camelCase starting with 'use' (`useWallet.ts`)
-- Types: PascalCase (`index.ts` with exported types)
+- Components: PascalCase (`SectionHeading.tsx`)
+- Other modules: camelCase (`links.ts`)
 
 ## Testing
 
-### Unit Tests
+Tests exercise the rendered page, not blockchain flows.
+
+### Unit Tests (Vitest + Testing Library)
 
 ```typescript
-// __tests__/lib/utils.test.ts
+// __tests__/components/StatusBadge.test.tsx
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { formatAmount } from '@/lib/utils';
+import StatusBadge from '@/components/ui/StatusBadge';
 
-describe('formatAmount', () => {
-  it('should format XLM amount correctly', () => {
-    expect(formatAmount(1.5)).toBe('1.50 XLM');
+describe('StatusBadge', () => {
+  it('renders the label for the "built" status', () => {
+    render(<StatusBadge status="built" />);
+    expect(screen.getByText(/implemented/i)).toBeInTheDocument();
   });
 });
 ```
 
-### Integration Tests
-
-Test component interactions and state updates.
-
-### E2E Tests
+### E2E Tests (Playwright)
 
 ```typescript
-// e2e/create-delivery.spec.ts
+// e2e/home.spec.ts
 import { test, expect } from '@playwright/test';
 
-test('should create delivery successfully', async ({ page }) => {
-  // Test implementation
+test('home page renders the hero', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 ```
 
@@ -238,9 +210,9 @@ Types: feat, fix, docs, refactor, test, chore
 ```
 
 Examples:
-- `[feat] Add delivery filtering`
-- `[fix] Resolve wallet connection issue`
-- `[docs] Update API documentation`
+- `[feat] Add ecosystem diagram section`
+- `[fix] Correct mobile menu focus trap`
+- `[docs] Update architecture overview`
 
 ### PR Description Template
 
@@ -314,20 +286,18 @@ npm run dev
 
 - Use browser DevTools
 - Check console for errors
-- Use React DevTools extension
-- Enable verbose logging in dev
+- Use the React DevTools extension
 
-### Working with Stellar
+### Keeping content honest
 
-- Use testnet for development
-- Get test XLM from friendbot
-- Test transactions thoroughly
-- Validate all addresses
+Copy on this site is sourced from the smart-contract and backend repositories' own
+documentation. When platform status changes, update `components/sections/ProjectStatus.tsx`
+(and `SmartContractLayer.tsx` / `Backend.tsx` as needed) rather than letting the page drift.
+Do not add "live" badges or deployment claims that aren't backed by a public deployment.
 
 ## Resources
 
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Stellar Documentation](https://developers.stellar.org)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [React Documentation](https://react.dev)
 

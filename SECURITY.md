@@ -1,5 +1,16 @@
 # Security Policy
 
+## Scope
+
+This repository is a **single-page static showcase site**. It has no backend, no API routes,
+no database, no authentication, no wallet integration, and no on-chain calls. It renders
+hard-coded content and takes no user input beyond in-page navigation. The attack surface is
+correspondingly small: static asset delivery and the response headers below.
+
+Security of the FaniLab platform's on-chain and off-chain components lives in the
+[smart contract](https://github.com/fanilabs/fanilab-smartcontract) and
+[backend](https://github.com/fanilabs/backend) repositories, not here.
+
 ## Supported Versions
 
 | Version | Supported          |
@@ -7,144 +18,72 @@
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
-## Security Best Practices
+## Measures actually in place
 
-### Smart Contract Interactions
+### Response headers (`next.config.js`)
 
-1. **Transaction Simulation**: All transactions are simulated before signing
-2. **User Confirmation**: Users must approve all blockchain transactions via Freighter
-3. **Input Validation**: All inputs are validated before submission
-4. **Error Handling**: Comprehensive error handling prevents information leakage
+Set for every path:
 
-### Wallet Security
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `X-Frame-Options: SAMEORIGIN`
+- `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `X-DNS-Prefetch-Control: on`
 
-- Never stores private keys
-- Uses Freighter wallet for all signing operations
-- Validates network before each transaction
-- Session-based address storage (cleared on disconnect)
+There is **no** `Content-Security-Policy` header configured.
 
-### Data Protection
+### Application
 
-- No sensitive data in localStorage beyond public addresses
-- XSS protection via React's built-in escaping
-- CSRF protection on API endpoints
-- Rate limiting on sensitive operations
+- Output is rendered through React, which escapes interpolated values by default. There is no
+  `dangerouslySetInnerHTML` in the codebase.
+- No client-side persistence: `localStorage`, `sessionStorage`, and cookies are never used.
+- No secrets are required or read. The only environment variable the code touches is the
+  optional `NEXT_PUBLIC_SITE_URL` (used only to build absolute Open Graph / canonical URLs).
+- Dependency surface is minimal — four runtime dependencies (`next`, `react`, `react-dom`,
+  `framer-motion`).
 
-### API Security
+### CI
 
-```typescript
-// All API calls include proper headers
-headers: {
-  'Content-Type': 'application/json',
-  // Add authentication headers as needed
-}
-```
+`.github/workflows/ci.yml` runs `npm audit --audit-level=high` on every push and pull
+request (non-blocking).
 
-### Environment Variables
+## Not applicable to this repository
 
-Never commit:
-- Private keys
-- Contract admin credentials
-- API secrets
-- Database credentials
+The following are sometimes expected of a Stellar dApp frontend but do **not** apply to the
+current showcase site, because the corresponding functionality is not present:
 
-### Dependencies
+- Wallet / Freighter signing, transaction simulation, gas estimation, network validation
+- Input validation schemas (there is no user input to validate)
+- CSRF protection, API authentication, rate limiting (there is no API)
+- Client-side state stores and persisted state
+- Error-boundary components
 
-- Regular security audits via `npm audit`
-- Automated updates via Dependabot
-- Only use well-maintained packages
+If the transactional dApp UI is reintroduced (see `ARCHITECTURE.md` → History), this policy
+should be revised to cover it.
 
 ## Reporting a Vulnerability
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: security@fanilab.com
+Report them by email to **security@fanilab.com**. Include:
 
-Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- a description of the issue,
+- steps to reproduce,
+- potential impact,
+- a suggested fix, if you have one.
 
-### What to Expect
+### What to expect
 
-- **Initial Response**: Within 48 hours
-- **Status Update**: Within 7 days
-- **Fix Timeline**: Depends on severity
+- **Initial response:** within 48 hours
+- **Status update:** within 7 days
+- **Fix timeline:** depends on severity
 
-### Bug Bounty
-
-We currently do not offer a bug bounty program but greatly appreciate responsible disclosure.
-
-## Security Measures Implemented
-
-### Frontend
-
-- [x] Input validation (Zod schemas)
-- [x] XSS protection (React escaping)
-- [x] HTTPS enforcement
-- [x] Secure headers configuration
-- [x] CSP headers (configure in next.config.js)
-- [x] No inline scripts
-- [x] Error boundary components
-
-### Smart Contract Integration
-
-- [x] Transaction simulation before signing
-- [x] Gas estimation
-- [x] Network validation
-- [x] Amount validation
-- [x] Address validation
-- [x] Timeout handling
-
-### State Management
-
-- [x] Zustand for predictable state
-- [x] No sensitive data in client state
-- [x] Automatic session cleanup
-- [x] Secure persisted state
-
-### Error Handling
-
-- [x] Never expose internal errors to users
-- [x] Comprehensive logging (server-side only)
-- [x] User-friendly error messages
-- [x] Error tracking integration ready
-
-## Audit History
-
-| Date | Auditor | Findings | Status |
-|------|---------|----------|--------|
-| TBD  | TBD     | TBD      | Pending |
-
-## Security Checklist for Deployment
-
-### Pre-Deployment
-
-- [ ] All dependencies updated and audited
-- [ ] Environment variables configured correctly
-- [ ] No secrets in codebase
-- [ ] HTTPS certificate valid
-- [ ] Security headers configured
-- [ ] Rate limiting enabled
-- [ ] Monitoring setup
-
-### Post-Deployment
-
-- [ ] Verify contract addresses
-- [ ] Test wallet connection
-- [ ] Test transaction flow
-- [ ] Monitor error rates
-- [ ] Verify analytics
-- [ ] Document deployment
-
-## Contact
-
-- Security Team: security@fanilab.com
-- General Contact: contact@fanilab.com
+We do not currently run a bug-bounty program, but we appreciate responsible disclosure.
 
 ## References
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [Stellar Security Guidelines](https://developers.stellar.org/docs/learn/security)
-- [Next.js Security](https://nextjs.org/docs/app/building-your-application/configuring/security-headers)
+- [Stellar Security](https://developers.stellar.org/docs/learn/security)
+- [Next.js security headers](https://nextjs.org/docs/app/building-your-application/configuring/security-headers)

@@ -1,8 +1,25 @@
-# FaniLab Frontend - Production Upgrade Summary
+# FaniLab Frontend — Production Upgrade Summary
+
+> ## ⚠️ Historical document
+>
+> This file records a past upgrade effort that added a transactional dApp UI (Soroban
+> integration with mock calls, Zustand/SWR state, Zod validation, Freighter wallet connect,
+> a larger test setup). **That code was later removed from `main`** in commit `96f3302`
+> ("rebuild frontend as single-page FaniLab showcase site", 2026-08-13) and exists only in
+> git history.
+>
+> The current repository is a single-page static showcase site with none of the below wired
+> in: no wallet, no Soroban/backend calls, no state store, and runtime dependencies limited
+> to `next`, `react`, `react-dom`, and `framer-motion`. The "10/10 / production-ready /
+> mainnet" language and the file, dependency, metric, and test-count claims here refer to
+> the removed code. Some companion docs referenced below have also been removed. See
+> `README.md`, `ARCHITECTURE.md`, and `AUDIT.md` for the current state; this file is kept as
+> a record of the effort.
 
 ## 🎯 Upgrade Overview
 
-Your FaniLab frontend has been upgraded from a **7/10 prototype** to a **10/10 production-ready** application that meets Stellar ecosystem standards.
+The FaniLab frontend was upgraded from a **7/10 prototype** to a **10/10 production-ready**
+application that meets Stellar ecosystem standards.
 
 ## 📊 Rating Improvement: 7/10 → 10/10
 

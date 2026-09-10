@@ -1,40 +1,35 @@
 # CI/CD Pipeline Guide
 
+Describes `.github/workflows/ci.yml`. The workflow runs on pushes and pull requests to
+`main` and `develop`, on Node 22.
+
 ## Current Status
 
-The CI/CD pipeline has been configured with **soft failures** to allow initial setup and development.
+Most jobs are configured with `continue-on-error: true`, so a red check on those jobs does
+not block a merge. **Type check** and **Build** are the effective gates — they are not
+marked `continue-on-error`.
 
 ## Pipeline Jobs
 
-### 1. ✅ Lint and Type Check
-**Status:** Will pass (with warnings)
-- ESLint check (non-blocking)
-- TypeScript type checking
-- Prettier format check (non-blocking)
+### 1. Lint and Type Check
+- ESLint (`npm run lint`) — non-blocking
+- TypeScript (`npm run type-check`) — **blocking**
+- Prettier format check (`npm run format:check`) — non-blocking
 
-### 2. ✅ Unit Tests
-**Status:** Will pass (with warnings)
-- Runs Vitest tests
-- Generates coverage report
-- Non-blocking initially
+### 2. Unit Tests
+- Runs Vitest (`npm run test`) — non-blocking
+- Uploads coverage to Codecov — non-blocking
 
-### 3. ✅ E2E Tests
-**Status:** Will pass (with warnings)
-- Runs Playwright tests
-- Non-blocking initially
-- Uploads test reports
+### 3. E2E Tests
+- Installs Playwright browsers, builds the app, runs `npm run test:e2e` — non-blocking
+- Uploads the Playwright report artifact
 
-### 4. ✅ Build
-**Status:** Should pass
-- Builds Next.js application
-- Verifies production build works
-- Uploads build artifacts
+### 4. Build
+- `npm run build` — **blocking**; needs job 1 to have run
+- Uploads the `.next/` build artifact
 
-### 5. ✅ Security Scan
-**Status:** Will pass
-- Runs npm audit
-- Checks for vulnerabilities
-- Non-blocking for moderate issues
+### 5. Security Scan
+- `npm audit --audit-level=high` — non-blocking
 
 ### 6. ⏭️ Deploy Preview
 **Status:** Skipped (needs Vercel secrets)
@@ -46,64 +41,32 @@ The CI/CD pipeline has been configured with **soft failures** to allow initial s
 - Only runs on main branch pushes
 - Requires Vercel configuration
 
-## Why Some Jobs Are "Failing"
+### 6. Deploy Preview / 7. Deploy Production
+Both are gated on `github.repository == 'fanilabs/fanilab-frontend'` and on `VERCEL_TOKEN`
+being set, so they are skipped on forks and wherever the Vercel secrets are absent.
 
-The jobs appear as "failing" but are configured with `continue-on-error: true` because:
+## Why lint/test/audit jobs are non-blocking
 
-1. **No package-lock.json yet** - Need to run `npm install` locally first
-2. **Tests not fully written** - Will be completed as features are developed
-3. **No Vercel secrets** - Deployment is optional
+`continue-on-error: true` is set on the lint, format, unit-test, e2e, and `npm audit` steps
+deliberately: this is a small static showcase site with a correspondingly small test suite,
+and those signals are treated as advisory. Type check and build are the checks that must
+stay green. If the transactional dApp UI is reintroduced, revisit whether the test jobs
+should become blocking.
 
-## Making Tests Pass
+## Adding Vercel deployment
 
-### Step 1: Generate package-lock.json
-```bash
-cd "c:\Users\user\Documents\Projects\fanilab\FaniLab-Frontend"
-npm install
-git add package-lock.json
-git commit -m "chore: Add package-lock.json"
-git push
-```
+1. Repository **Settings → Secrets and variables → Actions**
+2. Add:
+   - `VERCEL_TOKEN`
+   - `VERCEL_ORG_ID`
+   - `VERCEL_PROJECT_ID`
 
-### Step 2: Fix Any Linting Issues
-```bash
-npm run lint:fix
-npm run format
-git add .
-git commit -m "style: Fix linting and formatting"
-git push
-```
-
-### Step 3: (Optional) Add Vercel Deployment
-
-If you want automatic deployments:
-
-1. Go to GitHub repository settings
-2. Navigate to Secrets and Variables → Actions
-3. Add these secrets:
-   - `VERCEL_TOKEN` - Your Vercel token
-   - `VERCEL_ORG_ID` - Your Vercel organization ID
-   - `VERCEL_PROJECT_ID` - Your Vercel project ID
-
-## Current Configuration
-
-The pipeline is configured to:
-- ✅ Allow builds to succeed even with test warnings
-- ✅ Run all checks on every push
-- ✅ Upload test reports for review
-- ✅ Skip deployment if secrets are missing
-- ✅ Provide feedback without blocking development
-
-## Next Steps
-
-1. **Immediate:** Run `npm install` locally and commit package-lock.json
-2. **Short-term:** Write tests as features are developed
-3. **Optional:** Configure Vercel for automatic deployments
-4. **Future:** Remove `continue-on-error` flags once tests are complete
+Note: Vercel can also deploy this repository directly via its GitHub integration, with no
+workflow secrets and no configuration (no environment variables are required).
 
 ## Understanding the Badges
 
-Once package-lock.json is committed, you can add this badge to README.md:
+CI badge for `README.md`:
 
 ```markdown
 [![CI/CD](https://github.com/fanilabs/fanilab-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/fanilabs/fanilab-frontend/actions/workflows/ci.yml)
@@ -123,6 +86,6 @@ To re-enable:
 
 ## Questions?
 
-- Check the Actions tab in your GitHub repository
+- Check the Actions tab in the GitHub repository
 - Review individual job logs for details
-- All checks are informational at this stage
+- Type check and build are the required checks; the rest are advisory
